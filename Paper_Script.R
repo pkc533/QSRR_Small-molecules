@@ -3,12 +3,38 @@
 library("caret")
 library("caretEnsemble")
 library("ggplot2")
-library("gridarrange")
+
+
+
+#Read the data
+df = read.csv("main_data.csv")
+
+#Data Splitting
+library(caret)
+set.seed(3456)
+trainIndex <- createDataPartition(df$tR, p = .8, 
+                                  list = FALSE)
+head(trainIndex)
+train <- df[ trainIndex,]
+test  <- dfs[-trainIndex,]
+
+#Pre-processing
+## Removing nearzerovariance features
+names <- names(train)[nearZeroVar(train)]
+dat_train = train[, !(colnames(train) %in% names)]
+dat_test = test[,!(colnames(test) %in% names)]
+
+#center & Scaling
+preProcValues <- preProcess(dat_train, method = c("center", "scale"))
+
+trainTransformed <- predict(preProcValues, dat_train)
+testTransformed <- predict(preProcValues, dat_test)
+
+write.csv(trainTransformed, "train.csv")
+write.csv(testTransformed, "test.csv")
+
 
 #Wrapper method(RFE) feature selection
-#Read the data
-train = read.csv("train_data.csv")
-test= read.csv("test_data.csv")
 control <- rfeControl(functions=rfFuncs, method="cv", number=10)
 # summarize the results
 features <- rfe(x, train[,1],sizes=c(2:145), rfeControl=control)
@@ -59,9 +85,9 @@ results <- resamples(list(mlr_cfs = MLR_CFS, svr_cfs = SVR_CFS, RFE_mlr = MLR_RF
 summary(results)
 
 #Ensemble model predictions
-pred_lasso <- predict(allF_lasso, test_zero220)
-pred_rf <- predict(allF_rf, test_zero220)
-pred_gbm <- predict(allF_gbm, test_zero220)
+pred_lasso <- predict(allF_lasso, test)
+pred_rf <- predict(allF_rf, test)
+pred_gbm <- predict(allF_gbm, test)
 
 #Saving model predictions
 
@@ -88,9 +114,22 @@ results_mods <- resamples(list(mlr_cfs = MLR_CFS, svr_cfs = SVR_CFS, RFE_mlr = M
                                   RFE_svr = SVR_RFE,lasso = allF_lasso, 
                                   rf = allF_rf, gbm = allF_gbm, stack = fit.stacknew))
 summary(results_mods)
-pred_stack <- predict(fit.stacknew, test[-1])
+pred_stack <- predict(fit.stacknew, test)
 
+## Try when no separate feature selection applied 
 
+if(!require('caretEnsemble')) {
+  install.packages('caretEnsemble')
+  library('caretEnsemble')
+}
+
+modelList=c("glm", "lm","rf","gbm","svmRadial")
+stackModel <- caretEnsemble(### equals caretStack (method='lm')
+  modelList, 
+  metric="RMSE",
+  trControl=trainControl(number=10, method = "repeatedcv", repeats=3)
+)
+summary(stackModel)
 #Prediced vs. Experimental retention times plots
 obs=df$tR
 pred=df$MLR_CFS #(This will vary from one model predicion to other)
