@@ -16,7 +16,7 @@ trainIndex <- createDataPartition(df$tR, p = .8,
                                   list = FALSE)
 head(trainIndex)
 train <- df[ trainIndex,]
-test  <- dfs[-trainIndex,]
+test  <- df[-trainIndex,]
 
 #Pre-processing
 ## Removing nearzerovariance features
